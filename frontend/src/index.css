@@ -1,0 +1,84 @@
+/* ── AISha Browser Agent — Global Design System ── */
+:root {
+  --bg-primary: #0a0b1e;
+  --bg-secondary: #12142b;
+  --bg-sidebar: #060714;
+  --bg-hover: #1b1e3d;
+  --border: rgba(108, 92, 231, 0.15);
+  --text-primary: #ffffff;
+  --text-secondary: #b0b3c8;
+  --text-muted: #6b6f8a;
+  --accent-primary: #6c5ce7;
+  --accent-hover: #7d6ff0;
+  --accent-glow: rgba(108, 92, 231, 0.4);
+  --success: #00d2a0;
+  --warning: #fdcb6e;
+  --error: #ff6b6b;
+  --info: #74b9ff;
+  --gradient-1: linear-gradient(135deg, #6c5ce7 0%, #a855f7 100%);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --shadow-sm: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-md: 0 8px 30px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 50px rgba(0,0,0,0.6);
+  --shadow-glow: 0 0 20px var(--accent-glow);
+  --font-sans: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: #050505;
+  background-image: 
+    radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.5) 100%),
+    linear-gradient(rgba(5, 5, 5, 0.97), rgba(5, 5, 5, 0.97)),
+    url('/bg-floral.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Selection */
+::selection { background: var(--accent); color: white; }
+
+/* Utility animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes dotPulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
