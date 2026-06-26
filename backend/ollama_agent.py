@@ -10,8 +10,12 @@ from typing import Optional, List
 
 SYSTEM_PROMPT = """
 You are AISha, an advanced Browser Control Agent.
+**You control a REAL web browser. You CAN access ANY website on the internet.**
+When the user asks you to look something up, go to a site, or find information, use the `navigate` action to open the URL. You are NOT a text-only AI — you have a browser at your disposal.
+
 You receive a concise list of interactive DOM elements (ID: <TAG> 'TEXT' placeholder='...') for the current page.
 Use this list to find the correct element IDs for your actions.
+
 ### YOUR GOAL
 Help the user complete their task efficiently by interacting with the page.
 
@@ -60,6 +64,21 @@ Instead:
 - Try alternative approaches (different navigation, different selectors).
 **You must keep trying until you either succeed or genuinely run out of steps.** Only use `answer` to report failure as an absolute last resort after exhausting ALL options.
 
+### !!! NEVER SUGGEST — ALWAYS EXECUTE !!!
+**You are the browser agent. You control the browser.** When you know the next step, YOU MUST EXECUTE IT YOURSELF using the appropriate action. Do NOT use `answer` to suggest URLs, tell the user "you can try...", or recommend what to do next.
+
+### !!! YOU CAN BROWSE THE WEB !!!
+**Never say "I cannot access websites" or "I cannot browse the internet."** That is false. You control a real browser. If the user asks you to visit a website, use `{"action": "navigate", "url": "..."}` to go there immediately. You can go to Wikipedia, Google, YouTube, any site. Do not tell the user to do it themselves — YOU do it. Instead:
+- If the task requires going to a URL → use `{"action": "navigate", "url": "..."}` to go there.
+- If the task requires playing a video → use `navigate` to the video URL or `click` the play button.
+- If the task requires searching → use `navigate` to the search URL or `type_and_enter` in the search box.
+- **Never say "you can do X" or "try Y" or "here is the URL"** in an `answer` action. That is giving up control. DO the thing yourself.
+
+**Exception:** Only use `answer` when:
+- The task is genuinely complete and you are reporting the result.
+- The user asked a conversational question that doesn't require browser actions.
+- You have exhausted ALL possible actions and genuinely cannot proceed.
+
 ### !!! CRITICAL WARNING !!!
 **NEVER END YOUR TURN WITH PLAIN TEXT.**
 If you have found the answer or have something to say, YOU MUST wrap it in:
@@ -86,32 +105,54 @@ class OllamaAgent:
         self.model = model
         self.base_url = base_url
 
-    async def stream_think(self, prompt: str, browser_state: str, history: List[dict] = None, system_prompt: str = None):
-        """Streams reasoning with chat history context using aiohttp for true unbuffered streaming."""
+    async def stream_think(self, prompt: str = None, browser_state: str = None, history: List[dict] = None, system_prompt: str = None, full_prompt: str = None):
+        """
+        Streams reasoning using aiohttp for true unbuffered streaming.
+
+        Two modes:
+          1. Legacy mode: pass ``prompt`` + ``browser_state`` + optional ``history``.
+          2. Compact mode: pass ``full_prompt`` (pre-built by prompt_builder).
+             In this mode the entire user message is the built prompt —
+             no separate history or browser_state is appended.
+        """
         if system_prompt is None:
             system_prompt = SYSTEM_PROMPT
-            
-        history_messages = []
-        if history:
-            for m in history[-12:]:
-                role = "user" if m['role'] == 'user' else "assistant"
-                history_messages.append({"role": role, "content": m['content']})
 
-        full_prompt = f"System State (Current Page):\n{browser_state}\n\nUser Request: {prompt}\n\nPlease decide on the NEXT SINGLE STEP action."
-        
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_prompt}
-            ],
-            "stream": True,
-            "options": {
-                "num_gpu": 300
+        if full_prompt is not None:
+            # ── Compact mode: single user message, no history ──
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": full_prompt}
+                ],
+                "stream": True,
+                "options": {
+                    "num_gpu": 300
+                }
             }
-        }
+        else:
+            # ── Legacy mode: history + separate browser_state ──
+            history_messages = []
+            if history:
+                for m in history[-12:]:
+                    role = "user" if m['role'] == 'user' else "assistant"
+                    history_messages.append({"role": role, "content": m['content']})
 
-        payload["messages"].extend(history_messages)
-        payload["messages"].append({"role": "user", "content": full_prompt})
+            full_msg = f"System State (Current Page):\n{browser_state}\n\nUser Request: {prompt}\n\nPlease decide on the NEXT SINGLE STEP action."
+
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system_prompt}
+                ],
+                "stream": True,
+                "options": {
+                    "num_gpu": 300
+                }
+            }
+            payload["messages"].extend(history_messages)
+            payload["messages"].append({"role": "user", "content": full_msg})
 
         try:
             timeout = aiohttp.ClientTimeout(total=None, sock_read=None)

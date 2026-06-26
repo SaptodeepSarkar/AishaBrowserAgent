@@ -1,0 +1,52 @@
+# ── Python ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+*.egg
+.venv/
+venv/
+env/
+
+# ── Dependencies ──────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── Build output ──────────────────────────────────────
+frontend/dist/
+dist-ssr/
+
+# ── User data / runtime ──────────────────────────────
+backend/data/
+*.log
+
+# ── Environment & secrets ─────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+
+# ── IDE / Editor ──────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ── OS ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Misc ──────────────────────────────────────────────
+*.local
+*.zip
+*.tar.gz
