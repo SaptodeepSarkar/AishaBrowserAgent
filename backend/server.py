@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from desktop_agent import DesktopAgent
 from ollama_agent import OllamaAgent, SYSTEM_PROMPT
 from chat_manager import ChatManager
+from prompt_builder import build_prompt
 
 
 # ── Security: allowed origins for CORS ──────────────────────────────────
@@ -366,13 +367,12 @@ async def external_query(req: QueryRequest):
                 step_count = MAX_AGENT_STEPS  # force exit of while loop
                 break
 
-            # Trim history
-            trimmed_steps = session_steps[-3:] if len(session_steps) > 3 else session_steps
-            session_history = history + [{"role": "assistant", "content": f"**Thinking:** {s['thinking']}\n```json\n{json.dumps(s['action'])}\n```"} for s in trimmed_steps]
+            # ── Build compact prompt (system + last 2 steps + browser state) ──
+            full_prompt = build_prompt(SYSTEM_PROMPT, browser_state, current_prompt, session_steps)
 
             # Run the LLM
             thinking_buffer = ""
-            async for token in ollama.stream_think(current_prompt, browser_state, history=session_history, system_prompt=SYSTEM_PROMPT):
+            async for token in ollama.stream_think(full_prompt=full_prompt, system_prompt=SYSTEM_PROMPT):
                 thinking_buffer += token
                 print(token, end="", flush=True)
             print()
@@ -395,7 +395,8 @@ async def external_query(req: QueryRequest):
                 break
 
             # Execute action
-            session_steps.append({"thinking": thinking_buffer, "action": action})
+            step_entry = {"thinking": thinking_buffer, "action": action}
+            session_steps.append(step_entry)
 
             if bridge.extension_ws:
                 ext_action = action.copy()
@@ -437,6 +438,10 @@ async def external_query(req: QueryRequest):
                         await bridge.wait_for_dom(timeout=5.0)
             else:
                 action_result = "Extension not available."
+
+            # Enrich the executed step with result and URL for next prompt
+            step_entry["result"] = action_result
+            step_entry["url"] = bridge.latest_dom.get("url", "") if bridge.latest_dom else ""
 
             step_count += 1
             current_prompt = f"Original task: {prompt}\n\nLast action result: {action_result}\n\nContinue."
@@ -525,6 +530,18 @@ async def agent_websocket(ws: WebSocket):
                         try:
                             await bridge.extension_ws.send_json({"type": "action", "content": {"action": "lock"}})
                         except: pass
+
+                    # Reset agent tab to start.html on a new chat (fresh slate)
+                    if is_new_chat and bridge.extension_ws:
+                        try:
+                            await bridge.extension_ws.send_json({
+                                "type": "action",
+                                "content": {"action": "navigate", "url": "http://localhost:3000/start.html"}
+                            })
+                            # Give the page a moment to start loading before we request DOM
+                            await asyncio.sleep(0.3)
+                        except Exception as e:
+                            print(f"[Bridge] Error navigating agent tab to start.html: {e}")
 
                     # === BROWSER AGENT PHASE ===
                     # Pipeline: Wait for DOM → Agent decides → Execute → Wait for fresh DOM → Repeat
